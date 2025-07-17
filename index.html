@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Carbontra - Interactive Carbon Footprint Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (e.g., Beige, Slate, with a subtle Blue accent) -->
+    <!-- Application Structure Plan: A single-view, two-column responsive dashboard. Left column for interactive sliders (travel, electricity, waste) and right column for dynamic outputs. Outputs include a donut chart for CO2 source breakdown, clear text values, and a contextual feedback panel. This structure was chosen to transform the linear command-line experience into an immediate, visual, and interactive one, allowing users to instantly see the impact of their choices on their carbon footprint. -->
+    <!-- Visualization & Content Choices: 1. Inputs: From text prompts to interactive HTML sliders for better UX and error prevention. 2. CO2 Breakdown: From text list to a dynamic Chart.js donut chart to visually represent part-to-whole relationships. 3. Feedback: From plain text to a styled, color-coded panel for greater visual impact. All interactions trigger instant updates, providing immediate feedback to the user. This design prioritizes visual data comprehension over the original script's text-only output. Confirmed NO SVG/Mermaid. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            margin-top: -6px;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-stone-900">Carbon Footprint Calculator</h1>
+            <p class="mt-2 text-lg text-stone-600">Interactively estimate your weekly environmental impact.</p>
+        </header>
+
+        <main class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+
+                <!-- Input Section -->
+                <div class="flex flex-col space-y-8">
+                    <h2 class="text-2xl font-bold text-stone-800 border-b pb-2">Your Weekly Estimates</h2>
+                    <p class="text-stone-600 -mt-6">Adjust the sliders to see how your lifestyle choices affect your carbon footprint in real-time. This interactive tool helps visualize the impact of your weekly travel, monthly electricity consumption, and waste production.</p>
+
+                    <!-- Travel Input -->
+                    <div>
+                        <label for="travelSlider" class="flex justify-between items-center text-lg font-medium text-stone-700">
+                            <span>🚗 Car Travel</span>
+                            <span id="travelValue" class="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">50 km/week</span>
+                        </label>
+                        <input id="travelSlider" type="range" min="0" max="500" value="50" step="5" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer mt-2">
+                    </div>
+
+                    <!-- Electricity Input -->
+                    <div>
+                        <label for="electricitySlider" class="flex justify-between items-center text-lg font-medium text-stone-700">
+                            <span>💡 Electricity</span>
+                            <span id="electricityValue" class="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">100 kWh/month</span>
+                        </label>
+                        <input id="electricitySlider" type="range" min="0" max="1000" value="100" step="10" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer mt-2">
+                    </div>
+
+                    <!-- Waste Input -->
+                    <div>
+                        <label for="wasteSlider" class="flex justify-between items-center text-lg font-medium text-stone-700">
+                            <span>🗑️ Household Waste</span>
+                            <span id="wasteValue" class="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">4 kg/week</span>
+                        </label>
+                        <input id="wasteSlider" type="range" min="0" max="20" value="4" step="0.5" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer mt-2">
+                    </div>
+                </div>
+
+                <!-- Output Section -->
+                <div class="flex flex-col items-center justify-center bg-stone-50 rounded-xl p-6">
+                    <h2 class="text-2xl font-bold text-stone-800 mb-4">Your Impact Breakdown</h2>
+                    <div class="chart-container">
+                        <canvas id="footprintChart"></canvas>
+                    </div>
+                    <div id="totalFootprint" class="text-4xl font-bold text-stone-900 mt-4"></div>
+                    <p class="text-stone-600">kg of CO₂ per week</p>
+                    
+                    <div id="feedbackBox" class="w-full mt-6 p-4 rounded-lg text-center transition-all duration-300">
+                        <p id="feedbackText" class="font-medium"></p>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <footer class="text-center mt-8 text-stone-500">
+            <p>Based on the "Project Carbontra" Python script. Emission factors are illustrative averages.</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const CO2_PER_KM = 0.17;
+            const CO2_PER_KWH = 0.82;
+            const CO2_PER_KG_WASTE = 0.57;
+
+            const travelSlider = document.getElementById('travelSlider');
+            const electricitySlider = document.getElementById('electricitySlider');
+            const wasteSlider = document.getElementById('wasteSlider');
+
+            const travelValue = document.getElementById('travelValue');
+            const electricityValue = document.getElementById('electricityValue');
+            const wasteValue = document.getElementById('wasteValue');
+
+            const totalFootprintEl = document.getElementById('totalFootprint');
+            const feedbackBox = document.getElementById('feedbackBox');
+            const feedbackText = document.getElementById('feedbackText');
+            
+            const ctx = document.getElementById('footprintChart').getContext('2d');
+            const footprintChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Travel', 'Electricity', 'Waste'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: [
+                            'rgb(59, 130, 246)',  // blue-500
+                            'rgb(251, 191, 36)',  // amber-400
+                            'rgb(132, 204, 22)'   // lime-500
+                        ],
+                        borderColor: '#f9fafb', // bg-stone-50
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 14,
+                                    family: 'Inter',
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed.toFixed(2) + ' kg CO₂';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            function updateCalculator() {
+                const kmDriven = parseFloat(travelSlider.value);
+                const kwhUsed = parseFloat(electricitySlider.value);
+                const wasteGenerated = parseFloat(wasteSlider.value);
+
+                travelValue.textContent = `${kmDriven} km/week`;
+                electricityValue.textContent = `${kwhUsed} kWh/month`;
+                wasteValue.textContent = `${wasteGenerated.toFixed(1)} kg/week`;
+
+                const co2FromDriving = kmDriven * CO2_PER_KM;
+                const co2FromElectricity = (kwhUsed / 4.33) * CO2_PER_KWH;
+                const co2FromWaste = wasteGenerated * CO2_PER_KG_WASTE;
+                const totalWeeklyCo2 = co2FromDriving + co2FromElectricity + co2FromWaste;
+
+                totalFootprintEl.textContent = totalWeeklyCo2.toFixed(2);
+
+                footprintChart.data.datasets[0].data = [
+                    co2FromDriving,
+                    co2FromElectricity,
+                    co2FromWaste
+                ];
+                footprintChart.update();
+
+                if (totalWeeklyCo2 < 20) {
+                    feedbackBox.className = 'w-full mt-6 p-4 rounded-lg text-center transition-all duration-300 bg-green-100 text-green-800';
+                    feedbackText.innerHTML = '👍 Your carbon footprint is relatively low. Great job!';
+                } else if (totalWeeklyCo2 < 50) {
+                    feedbackBox.className = 'w-full mt-6 p-4 rounded-lg text-center transition-all duration-300 bg-yellow-100 text-yellow-800';
+                    feedbackText.innerHTML = '😐 Your carbon footprint is average. There are opportunities to reduce it.';
+                } else {
+                    feedbackBox.className = 'w-full mt-6 p-4 rounded-lg text-center transition-all duration-300 bg-red-100 text-red-800';
+                    feedbackText.innerHTML = '❗ Your carbon footprint is high. Consider looking for ways to reduce your impact.';
+                }
+            }
+
+            [travelSlider, electricitySlider, wasteSlider].forEach(slider => {
+                slider.addEventListener('input', updateCalculator);
+            });
+
+            updateCalculator();
+        });
+    </script>
+</body>
+</html>
